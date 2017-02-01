@@ -11,6 +11,7 @@
 
 #import "TreasureHuntRenderer.h"
 
+#import <AVFoundation/AVFoundation.h>
 #import <AudioToolbox/AudioToolbox.h>
 #import <GLKit/GLKit.h>
 #import <OpenGLES/EAGL.h>
@@ -49,7 +50,7 @@ static const char *kVideoPlaneVertexShaderString =
     "varying vec3 vGrid;  \n"
     "varying vec2 vTexCoord;  \n"
     "void main(void) { \n"
-    "  vTexCoord = aVertex.xy; \n"
+    "  vTexCoord = vec2(aVertex.x - 0.5, aVertex.y * -1.0 - 0.5); \n"
     "  vGrid = aVertex + uPosition; \n"
     "  vec4 pos = vec4(vGrid, 1.0); \n"
     "  gl_Position = uMVP * pos; \n"
@@ -447,6 +448,11 @@ static bool checkProgramLinkStatus(GLuint shader_program) {
     GLint _video_plane_color_attrib;
     GLuint _video_plane_color_buffer;
     GLuint _video_plane_found_color_buffer;
+    
+    AVPlayer *player;
+    AVPlayerItem *playerItem;
+    AVPlayerItemVideoOutput *playerOutput;
+    
 
   // GL variables for the grid.
   GLfloat _grid_vertices[NUM_GRID_VERTICES];
@@ -466,6 +472,8 @@ static bool checkProgramLinkStatus(GLuint shader_program) {
   int _success_source_id;
   bool _is_cube_focused;
 }
+
+
 
 #pragma mark - GVRCardboardViewDelegate overrides
 
@@ -591,6 +599,15 @@ static bool checkProgramLinkStatus(GLuint shader_program) {
     _video_plane_position[0] = 0;
     _video_plane_position[1] = -0.5f;
     _video_plane_position[2] = -2.0f;
+    
+    NSURL *videoURL = [NSURL URLWithString:@"http://clips.vorwaerts-gmbh.de/big_buck_bunny.mp4"];
+    NSDictionary* settings = @{ (id)kCVPixelBufferPixelFormatTypeKey : @(kCVPixelFormatType_32BGRA) };
+    playerOutput = [[AVPlayerItemVideoOutput alloc] initWithPixelBufferAttributes:settings];
+    AVURLAsset *asset = [AVURLAsset URLAssetWithURL:videoURL options:nil];
+    playerItem = [AVPlayerItem playerItemWithAsset:asset];
+    [playerItem addOutput:playerOutput];
+    player = [AVPlayer playerWithPlayerItem:playerItem];
+    [player play];
     
 
   /////// Create the program object for the grid.
@@ -729,29 +746,32 @@ static bool checkProgramLinkStatus(GLuint shader_program) {
     // Select our shader.
     glUseProgram(_video_plane_program);
     
-    int width = 10;
-    int height = 10;
+    int width = 400;
+    int height = 300;
     GLubyte *pixelBuffer = (GLubyte *)malloc(4 * width * height);
     for(int i = 0; i < 4 * width * height; i++) {
         pixelBuffer[i] = 0xff;
     }
     
     // create a suitable CoreGraphics context
-//    CGColorSpaceRef colourSpace = CGColorSpaceCreateDeviceRGB();
-//    CGContextRef context =
-//    CGBitmapContextCreate(pixelBuffer, width, height, 8, 4 * width, colourSpace, kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big);
-//    CGColorSpaceRelease(colourSpace);
+    CGColorSpaceRef colourSpace = CGColorSpaceCreateDeviceRGB();
+    CGContextRef context = CGBitmapContextCreate(pixelBuffer, width, height, 8, 4 * width, colourSpace, kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big);
+    CGColorSpaceRelease(colourSpace);
     
     // draw the view to the buffer
-//    [view.layer renderInContext:context];
+    CVPixelBufferRef buffer = [playerOutput copyPixelBufferForItemTime:[playerItem currentTime] itemTimeForDisplay:nil];
+    
+    CVPixelBufferLockBaseAddress(buffer, kCVPixelBufferLock_ReadOnly);
+    NSLog(@"%d", (int) CVPixelBufferGetBaseAddress(buffer));
     
     // upload to OpenGL
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, _video_plane_texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixelBuffer);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, CVPixelBufferGetBytesPerRow(buffer)/4, CVPixelBufferGetHeight(buffer), 0, GL_RGBA, GL_UNSIGNED_BYTE, CVPixelBufferGetBaseAddress(buffer));
+//    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixelBuffer);
     
     // clean up
-//    CGContextRelease(context);
+    CGContextRelease(context);
     free(pixelBuffer);
     
     

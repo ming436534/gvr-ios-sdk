@@ -12,6 +12,7 @@
 /** TreasureHunt renderer. */
 @interface TreasureHuntRenderer : NSObject<GVRCardboardViewDelegate>
 
+- (instancetype)initWithRenderedView:(UIView *)view;
 @property(nonatomic, weak) id<TreasureHuntRendererDelegate> delegate;
 
 @end

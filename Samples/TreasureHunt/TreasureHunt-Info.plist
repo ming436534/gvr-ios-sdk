@@ -2,10 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>UIRequiredDeviceCapabilities</key>
-	<array>
-    <string>magnetometer</string>
-	</array>
 	<key>CFBundleDisplayName</key>
 	<string>${PRODUCT_NAME}</string>
 	<key>CFBundleExecutable</key>
@@ -26,14 +22,26 @@
 	<string>2.1</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
-  <key>UILaunchStoryboardName</key>
-  <string>launch</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+	</dict>
+	<key>NSCameraUsageDescription</key>
+	<string>Used to scan QR codes</string>
+	<key>UILaunchStoryboardName</key>
+	<string>launch</string>
+	<key>UIRequiredDeviceCapabilities</key>
+	<array>
+		<string>magnetometer</string>
+	</array>
+	<key>UIRequiresFullScreen</key>
+	<true/>
 	<key>UIStatusBarHidden</key>
 	<true/>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 	</array>
@@ -44,9 +52,5 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-  <key>UIRequiresFullScreen</key>
-	<true/>
-  <key>NSCameraUsageDescription</key>
-	<string>Used to scan QR codes</string>
 </dict>
 </plist>
