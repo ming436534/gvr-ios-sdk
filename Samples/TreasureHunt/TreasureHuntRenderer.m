@@ -4,6 +4,8 @@
 
 #define NUM_CUBE_VERTICES 108
 #define NUM_CUBE_COLORS 144
+#define NUM_VIDEO_PLANE_VERTICES 18
+#define NUM_VIDEO_PLANE_COLORS 24
 #define NUM_GRID_VERTICES 72
 #define NUM_GRID_COLORS 96
 
@@ -37,6 +39,23 @@ static const char *kVertexShaderString =
     "    \n"
     "}\n";
 
+// Vertex shader implementation for video plane.
+static const char *kVideoPlaneVertexShaderString =
+    "#version 100\n"
+    "\n"
+    "uniform mat4 uMVP; \n"
+    "uniform vec3 uPosition; \n"
+    "attribute vec3 aVertex; \n"
+    "varying vec3 vGrid;  \n"
+    "varying vec2 vTexCoord;  \n"
+    "void main(void) { \n"
+    "  vTexCoord = aVertex.xy; \n"
+    "  vGrid = aVertex + uPosition; \n"
+    "  vec4 pos = vec4(vGrid, 1.0); \n"
+    "  gl_Position = uMVP * pos; \n"
+    "    \n"
+    "}\n";
+
 // Simple pass-through fragment shader.
 static const char *kPassThroughFragmentShaderString =
     "#version 100\n"
@@ -48,6 +67,22 @@ static const char *kPassThroughFragmentShaderString =
     "\n"
     "void main(void) { \n"
     "  gl_FragColor = vColor; \n"
+    "}\n";
+
+
+// Fragment shader for the floorplan grid.
+// Line patters are generated based on the fragment's position in 3d.
+static const char* kVideoPlaneFragmentShaderString =
+    "#version 100\n"
+    "\n"
+    "#ifdef GL_ES\n"
+    "precision mediump float;\n"
+    "#endif\n"
+    "varying vec2 vTexCoord;\n"
+    "uniform sampler2D uTexture;\n"
+    "\n"
+    "void main() {\n"
+    "    gl_FragColor = texture2D(uTexture, vTexCoord);\n"
     "}\n";
 
 // Fragment shader for the floorplan grid.
@@ -117,6 +152,25 @@ static const float kCubeVertices[NUM_CUBE_VERTICES] = {
   0.5f, -0.5f, 0.5f,
   -0.5f, -0.5f, 0.5f,
   -0.5f, -0.5f, -0.5f,
+};
+
+static const float kVideoPlaneVertices[NUM_VIDEO_PLANE_VERTICES] = {
+    -0.5f, 0.5f, 0.5f,
+    -0.5f, -0.5f, 0.5f,
+    0.5f, 0.5f, 0.5f,
+    -0.5f, -0.5f, 0.5f,
+    0.5f, -0.5f, 0.5f,
+    0.5f, 0.5f, 0.5f,
+};
+
+// Color of the plane
+static const float kVideoPlaneColors[NUM_VIDEO_PLANE_COLORS] = {
+    0.0f, 0.5273f, 0.2656f, 1.0f,
+    0.0f, 0.5273f, 0.2656f, 1.0f,
+    0.0f, 0.5273f, 0.2656f, 1.0f,
+    0.0f, 0.5273f, 0.2656f, 1.0f,
+    1.0f, 0.5273f, 0.2656f, 1.0f,
+    1.0f, 0.5273f, 0.2656f, 1.0f,
 };
 
 // Color of the cube's six faces.
@@ -377,6 +431,22 @@ static bool checkProgramLinkStatus(GLuint shader_program) {
   GLint _cube_color_attrib;
   GLuint _cube_color_buffer;
   GLuint _cube_found_color_buffer;
+    
+    
+    GLfloat _video_plane_vertices[NUM_VIDEO_PLANE_VERTICES];
+    GLfloat _video_plane_position[3];
+    GLfloat _video_plane_colors[NUM_VIDEO_PLANE_COLORS];
+    
+    GLuint _video_plane_texture;
+    GLuint _video_plane_program;
+    GLint _video_plane_vertex_attrib;
+    GLint _video_plane_position_uniform;
+    GLint _video_plane_texture_uniform;
+    GLint _video_plane_mvp_matrix;
+    GLuint _video_plane_vertex_buffer;
+    GLint _video_plane_color_attrib;
+    GLuint _video_plane_color_buffer;
+    GLuint _video_plane_found_color_buffer;
 
   // GL variables for the grid.
   GLfloat _grid_vertices[NUM_GRID_VERTICES];
@@ -404,9 +474,13 @@ static bool checkProgramLinkStatus(GLuint shader_program) {
   // Renderer must be created on GL thread before any call to drawFrame.
   // Load the vertex/fragment shaders.
   const GLuint vertex_shader = LoadShader(GL_VERTEX_SHADER, kVertexShaderString);
-  NSAssert(vertex_shader != 0, @"Failed to load vertex shader");
+    NSAssert(vertex_shader != 0, @"Failed to load vertex shader");
+    const GLuint video_plane_vertex_shader = LoadShader(GL_VERTEX_SHADER, kVideoPlaneVertexShaderString);
+    NSAssert(video_plane_vertex_shader != 0, @"Failed to load video plane vertex shader");
   const GLuint fragment_shader = LoadShader(GL_FRAGMENT_SHADER, kPassThroughFragmentShaderString);
   NSAssert(fragment_shader != 0, @"Failed to load fragment shader");
+    const GLuint video_plane_fragment_shader = LoadShader(GL_FRAGMENT_SHADER, kVideoPlaneFragmentShaderString);
+    NSAssert(video_plane_fragment_shader != 0, @"Failed to load video plane fragment shader");
   const GLuint grid_fragment_shader = LoadShader(GL_FRAGMENT_SHADER, kGridFragmentShaderString);
   NSAssert(grid_fragment_shader != 0, @"Failed to load grid fragment shader");
 
@@ -458,6 +532,66 @@ static bool checkProgramLinkStatus(GLuint shader_program) {
   NSAssert(_cube_found_color_buffer != 0, @"glGenBuffers failed for color buffer");
   glBindBuffer(GL_ARRAY_BUFFER, _cube_found_color_buffer);
   glBufferData(GL_ARRAY_BUFFER, sizeof(_cube_found_colors), _cube_found_colors, GL_STATIC_DRAW);
+    
+    
+    /////// Create the program object for the video plane.
+    
+    _video_plane_program = glCreateProgram();
+    NSAssert(_video_plane_program != 0, @"Failed to create program");
+    glAttachShader(_video_plane_program, video_plane_vertex_shader);
+    glAttachShader(_video_plane_program, video_plane_fragment_shader);
+    
+    // Link the shader program.
+    glLinkProgram(_video_plane_program);
+    NSAssert(checkProgramLinkStatus(_video_plane_program), @"Failed to link _video_plane_program");
+    
+    // Get the location of our attributes so we can bind data to them later.
+    _video_plane_vertex_attrib = glGetAttribLocation(_video_plane_program, "aVertex");
+    NSAssert(_video_plane_vertex_attrib != -1, @"glGetAttribLocation failed for aVertex");
+//    _video_plane_color_attrib = glGetAttribLocation(_video_plane_program, "aColor");
+//    NSAssert(_video_plane_color_attrib != -1, @"glGetAttribLocation failed for aColor");
+    
+    // After linking, fetch references to the uniforms in our shader.
+    _video_plane_mvp_matrix = glGetUniformLocation(_video_plane_program, "uMVP");
+    _video_plane_position_uniform = glGetUniformLocation(_video_plane_program, "uPosition");
+    _video_plane_texture_uniform = glGetUniformLocation(_video_plane_program, "uTexture");
+    NSAssert(_video_plane_mvp_matrix != -1 && _video_plane_position_uniform != -1 && _video_plane_texture_uniform != -1,
+             @"Error fetching uniform values for shader.");
+    // Initialize the vertex data for the video plane mesh.
+    for (int i = 0; i < NUM_VIDEO_PLANE_VERTICES; ++i) {
+        _video_plane_vertices[i] = (GLfloat)(kVideoPlaneVertices[i] * kCubeSize);
+    }
+    glGenBuffers(1, &_video_plane_vertex_buffer);
+    NSAssert(_video_plane_vertex_buffer != 0, @"glGenBuffers failed for vertex buffer");
+    glBindBuffer(GL_ARRAY_BUFFER, _video_plane_vertex_buffer);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(_video_plane_vertices), _video_plane_vertices, GL_STATIC_DRAW);
+    
+    // Initialize the color data for the video plane mesh.
+    for (int i = 0; i < NUM_VIDEO_PLANE_COLORS; ++i) {
+        _video_plane_colors[i] = (GLfloat)(kVideoPlaneColors[i] * kCubeSize);
+    }
+    glGenBuffers(1, &_video_plane_color_buffer);
+    NSAssert(_video_plane_color_buffer != 0, @"glGenBuffers failed for color buffer");
+    glBindBuffer(GL_ARRAY_BUFFER, _video_plane_color_buffer);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(_video_plane_colors), _video_plane_colors, GL_STATIC_DRAW);
+    
+    // Initialize texture for video plane
+    glGenTextures(1, &_video_plane_texture);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, _video_plane_texture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    
+    _cube_position[0] = 0;
+    _cube_position[1] = 0;
+    _cube_position[2] = -3.0f;
+    
+    _video_plane_position[0] = 0;
+    _video_plane_position[1] = -0.5f;
+    _video_plane_position[2] = -2.0f;
+    
 
   /////// Create the program object for the grid.
 
@@ -591,6 +725,57 @@ static bool checkProgramLinkStatus(GLuint shader_program) {
   glDrawArrays(GL_TRIANGLES, 0, NUM_CUBE_VERTICES / 3);
   glDisableVertexAttribArray(_cube_vertex_attrib);
   glDisableVertexAttribArray(_cube_color_attrib);
+    
+    // Select our shader.
+    glUseProgram(_video_plane_program);
+    
+    int width = 10;
+    int height = 10;
+    GLubyte *pixelBuffer = (GLubyte *)malloc(4 * width * height);
+    for(int i = 0; i < 4 * width * height; i++) {
+        pixelBuffer[i] = 0xff;
+    }
+    
+    // create a suitable CoreGraphics context
+//    CGColorSpaceRef colourSpace = CGColorSpaceCreateDeviceRGB();
+//    CGContextRef context =
+//    CGBitmapContextCreate(pixelBuffer, width, height, 8, 4 * width, colourSpace, kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big);
+//    CGColorSpaceRelease(colourSpace);
+    
+    // draw the view to the buffer
+//    [view.layer renderInContext:context];
+    
+    // upload to OpenGL
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, _video_plane_texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixelBuffer);
+    
+    // clean up
+//    CGContextRelease(context);
+    free(pixelBuffer);
+    
+    
+    // Set the uniform values that will be used by our shader.
+    glUniform3fv(_video_plane_position_uniform, 1, _video_plane_position);
+    glUniform1i(_video_plane_texture_uniform, 0); // our texture slot
+    
+    // Set the uniform matrix values that will be used by our shader.
+    glUniformMatrix4fv(_video_plane_mvp_matrix, 1, false, model_view_matrix);
+    
+    // Set the cube colors.
+//    glBindBuffer(GL_ARRAY_BUFFER, _cube_color_buffer);
+//    glVertexAttribPointer(_video_plane_color_attrib, 4, GL_FLOAT, GL_FALSE, sizeof(float) * 4, 0);
+//    glEnableVertexAttribArray(_video_plane_color_attrib);
+    
+    // Draw our polygons.
+    glBindBuffer(GL_ARRAY_BUFFER, _video_plane_vertex_buffer);
+    glVertexAttribPointer(_video_plane_vertex_attrib, 3, GL_FLOAT, GL_FALSE,
+                          sizeof(float) * 3, 0);
+    glEnableVertexAttribArray(_video_plane_vertex_attrib);
+    glDrawArrays(GL_TRIANGLES, 0, NUM_VIDEO_PLANE_VERTICES / 3);
+    glDisableVertexAttribArray(_video_plane_vertex_attrib);
+//    glDisableVertexAttribArray(_video_plane_color_attrib);
+    
 
   // Select our shader.
   glUseProgram(_grid_program);
@@ -669,9 +854,9 @@ static bool checkProgramLinkStatus(GLuint shader_program) {
   const float azimuth = (float)(drand48() * kMaxCubeAzimuthRadians);
   const float elevation = (float)(2.0 * drand48() * kMaxCubeElevationRadians) -
                           kMaxCubeElevationRadians;
-  _cube_position[0] = -cos(elevation) * sin(azimuth) * distance;
-  _cube_position[1] = sin(elevation) * distance;
-  _cube_position[2] = -cos(elevation) * cos(azimuth) * distance;
+//  _cube_position[0] = -cos(elevation) * sin(azimuth) * distance;
+//  _cube_position[1] = sin(elevation) * distance;
+//  _cube_position[2] = -cos(elevation) * cos(azimuth) * distance;
 }
 
 // Returns whether the object is currently on focus.
