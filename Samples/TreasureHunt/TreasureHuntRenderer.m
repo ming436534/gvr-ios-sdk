@@ -9,7 +9,6 @@
 #define NUM_GRID_VERTICES 72
 #define NUM_GRID_COLORS 96
 
-#include <hxcpp.h>
 #import "Sprite.h"
 #import "ButtonSprite.h"
 #import "VideoSprite.h"
@@ -437,9 +436,8 @@ static bool checkProgramLinkStatus(GLuint shader_program) {
   GLuint _cube_color_buffer;
   GLuint _cube_found_color_buffer;
     
-    VideoSprite_obj *sprite;
     Sprite *sprites[2];
-    
+    GVRHeadTransform *_headTransform;
     
 
   // GL variables for the grid.
@@ -529,10 +527,15 @@ static bool checkProgramLinkStatus(GLuint shader_program) {
   glBindBuffer(GL_ARRAY_BUFFER, _cube_found_color_buffer);
   glBufferData(GL_ARRAY_BUFFER, sizeof(_cube_found_colors), _cube_found_colors, GL_STATIC_DRAW);
     
-    sprite = new VideoSprite_obj;
-    sprite->__construct();
-//    sprites[0] = [[VideoSprite alloc] init];
+    sprites[0] = [[VideoSprite alloc] init];
     sprites[1] = [[ButtonSprite alloc] init];
+    
+    sprites[0].z = -10;
+    
+    sprites[1].width = 10;
+    sprites[1].height = 10;
+    sprites[1].x = 5;
+    sprites[1].y = -5;
     
     _cube_position[0] = 0;
     _cube_position[1] = 0;
@@ -621,9 +624,10 @@ static bool checkProgramLinkStatus(GLuint shader_program) {
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   glEnable(GL_SCISSOR_TEST);
  
-    sprite->prerender();
-//    [sprites[0] prerender];
-    [sprites[1] prerender];
+    _headTransform = headTransform;
+    
+    [sprites[0] prerender:headTransform];
+    [sprites[1] prerender:headTransform];
 }
 
 - (void)cardboardView:(GVRCardboardView *)cardboardView
@@ -676,8 +680,8 @@ static bool checkProgramLinkStatus(GLuint shader_program) {
   glDisableVertexAttribArray(_cube_vertex_attrib);
   glDisableVertexAttribArray(_cube_color_attrib);
     
-    sprite->render(model_view_matrix);
-//    [sprites[0] render:model_view_matrix];
+    
+    [sprites[0] render:model_view_matrix];
     [sprites[1] render:model_view_matrix];
     
 
@@ -716,6 +720,8 @@ static bool checkProgramLinkStatus(GLuint shader_program) {
       break;
     case kGVRUserEventTrigger:
       NSLog(@"User performed trigger action");
+          
+          sprites[0].transformation = GLKMatrix4Translate(GLKMatrix4Invert([_headTransform headPoseInStartSpace], nil), 0, 0, -10);
       // Check whether the object is found.
       if (_is_cube_focused) {
          _success_source_id = [_gvr_audio_engine createStereoSound:kSuccessSoundFile];

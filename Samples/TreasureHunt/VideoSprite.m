@@ -8,7 +8,7 @@
 
 #define NUM_VERTICES 18
 
-#import "VideoSprite_.h"
+#import "VideoSprite.h"
 #import <AVFoundation/AVFoundation.h>
 #import <GLKit/GLKit.h>
 #import <OpenGLES/EAGL.h>
@@ -72,15 +72,14 @@ static const char *kVertexShaderString =
     "#version 100\n"
     "\n"
     "uniform mat4 uMVP; \n"
-    "uniform vec3 uPosition; \n"
+    "uniform mat4 uPosition; \n"
     "attribute vec3 aVertex; \n"
     "attribute vec3 aTexCoords; \n"
     "varying vec3 vGrid;  \n"
     "varying vec2 vTexCoord;  \n"
     "void main(void) { \n"
-    "  vTexCoord = vec2(aTexCoords.x * -1.0, aTexCoords.y * -1.0); \n"
-    "  vGrid = aVertex + uPosition; \n"
-    "  vec4 pos = vec4(vGrid, 1.0); \n"
+    "  vTexCoord = vec2(aTexCoords.x, aTexCoords.y * -1.0); \n"
+    "  vec4 pos = uPosition * vec4(aVertex, 1.0); \n"
     "  gl_Position = uMVP * pos; \n"
     "    \n"
     "}\n";
@@ -121,7 +120,6 @@ static const float kTexCoords[NUM_VERTICES] = {
     
     GLfloat vertices[NUM_VERTICES];
     GLfloat tex_coords[NUM_VERTICES];
-    GLfloat position[3];
     
     GLuint texture;
     GLuint program;
@@ -199,10 +197,6 @@ static const float kTexCoords[NUM_VERTICES] = {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         
-        position[0] = 0;
-        position[1] = -0.5f;
-        position[2] = 4.0f;
-        
         NSURL *videoURL = [NSURL URLWithString:@"http://clips.vorwaerts-gmbh.de/big_buck_bunny.mp4"];
         NSDictionary* settings = @{ (id)kCVPixelBufferPixelFormatTypeKey : @(kCVPixelFormatType_32BGRA) };
         
@@ -217,11 +211,13 @@ static const float kTexCoords[NUM_VERTICES] = {
     return self;
 }
 
-- (void) prerender {
+- (void) prerender:(GVRHeadTransform *)headTransform {
     
     CMTime currentTime = [playerItem currentTime];
     
     NSLog(@"size: %f, %f", playerItem.presentationSize.width, playerItem.presentationSize.height);
+    self.width = playerItem.presentationSize.width / 100;
+    self.height = playerItem.presentationSize.height / 100;
     
     if(lastTime != currentTime.value) {
         NSLog(@"Update %lld", lastTime);
@@ -238,21 +234,20 @@ static const float kTexCoords[NUM_VERTICES] = {
             glBindTexture(GL_TEXTURE_2D, texture);
             glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (int) CVPixelBufferGetBytesPerRow(buffer) / 4, (int) CVPixelBufferGetHeight(buffer), 0, GL_RGBA, GL_UNSIGNED_BYTE, CVPixelBufferGetBaseAddress(buffer));
         }
-        
     } else {
         NSLog(@"Skipped");
     }
+    
+    
+    glUseProgram(program);
+    glUniformMatrix4fv(position_uniform, 1, false, _transformation.m);
+    glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(_vertices), _vertices, GL_STATIC_DRAW);
 }
 
 - (void) render:(const float *)model_view_matrix {
     // Select our shader.
     glUseProgram(program);
-    
-    // Set the uniform values that will be used by our shader.
-    glUniform3fv(position_uniform, 1, position);
-    glUniform1i(texture_uniform, 0); // our texture slot
-    
-    // Set the uniform matrix values that will be used by our shader.
     glUniformMatrix4fv(mvp_matrix, 1, false, model_view_matrix);
     
     // Draw our polygons.

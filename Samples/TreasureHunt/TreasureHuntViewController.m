@@ -2,12 +2,6 @@
 #import <MediaPlayer/MediaPlayer.h>
 #import "TreasureHuntRenderLoop.h"
 #import "TreasureHuntRenderer.h"
-//#import "Api.h"
-
-
-
-extern "C" const char *hxRunLibrary();
-extern "C" void hxcpp_set_top_of_stack();
 
 @interface TreasureHuntViewController ()<TreasureHuntRendererDelegate> {
   GVRCardboardView *_cardboardView;
@@ -20,18 +14,6 @@ extern "C" void hxcpp_set_top_of_stack();
 
 - (void)loadView {
     
-    
-    hxcpp_set_top_of_stack();
-    const char *err = hxRunLibrary();
-    if (err) {
-        // Unhandled exceptions ...
-        fprintf(stderr,"Error %s\n", err );
-        
-    }
-    
-//    Api_obj *api = new Api_obj();
-//    api->printBool(true);
-//    api->printString("my name is kevin2");
     
 //    NSURL *videoURL = [NSURL URLWithString:@"http://clips.vorwaerts-gmbh.de/big_buck_bunny.mp4"];
 //    AVURLAsset *asset = [AVURLAsset URLAssetWithURL:videoURL options:nil];

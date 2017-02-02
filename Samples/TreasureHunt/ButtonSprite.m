@@ -75,7 +75,7 @@ static const char *kVertexShaderString =
     "#version 100\n"
     "\n"
     "uniform mat4 uMVP; \n"
-    "uniform vec3 uPosition; \n"
+    "uniform mat4 uPosition; \n"
     "attribute vec3 aVertex; \n"
     "attribute vec4 aColor; \n"
     "varying vec3 vGrid;  \n"
@@ -84,8 +84,7 @@ static const char *kVertexShaderString =
     "void main(void) { \n"
     "  //vTexCoord = vec2(aVertex.x - 0.5, aVertex.y * -1.0 - 0.5); \n"
     "  vColor = aColor; \n"
-    "  vGrid = aVertex + uPosition; \n"
-    "  vec4 pos = vec4(vGrid, 1.0); \n"
+    "  vec4 pos = uPosition * vec4(aVertex, 1.0); \n"
     "  gl_Position = uMVP * pos; \n"
     "    \n"
     "}\n";
@@ -185,8 +184,6 @@ static const float kColors[NUM_COLORS] = {
         }
         glGenBuffers(1, &vertex_buffer);
         NSAssert(vertex_buffer != 0, @"glGenBuffers failed for vertex buffer");
-        glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
         
         // Initialize the found color data for the cube mesh.
         for (int i = 0; i < NUM_COLORS; ++i) {
@@ -206,7 +203,7 @@ static const float kColors[NUM_COLORS] = {
     return self;
 }
 
-- (void) prerender {
+- (void) prerender:(GVRHeadTransform *)headTransform {
     
 }
 
@@ -215,10 +212,11 @@ static const float kColors[NUM_COLORS] = {
     glUseProgram(program);
     
     // Set the uniform values that will be used by our shader.
-    glUniform3fv(position_uniform, 1, position);
+//    glUniform3fv(position_uniform, 1, position);
     glUniform1i(texture_uniform, 0); // our texture slot
     
     // Set the uniform matrix values that will be used by our shader.
+    glUniformMatrix4fv(position_uniform, 1, false, _transformation.m);
     glUniformMatrix4fv(mvp_matrix, 1, false, model_view_matrix);
     
     // Set the grid colors.
@@ -228,6 +226,7 @@ static const float kColors[NUM_COLORS] = {
     
     // Draw our polygons.
     glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
     glVertexAttribPointer(vertex_attrib, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 3, 0);
     glEnableVertexAttribArray(vertex_attrib);
     glDrawArrays(GL_TRIANGLES, 0, NUM_VERTICES / 3);
