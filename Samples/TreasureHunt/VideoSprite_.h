@@ -6,8 +6,9 @@
 //
 //
 
+#import "Sprite.h"
 #import <Foundation/Foundation.h>
 
-@interface VideoSprite : NSObject
+@interface VideoSprite : Sprite
 
 @end

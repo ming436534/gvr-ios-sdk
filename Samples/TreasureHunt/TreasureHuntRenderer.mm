@@ -9,6 +9,10 @@
 #define NUM_GRID_VERTICES 72
 #define NUM_GRID_COLORS 96
 
+#include <hxcpp.h>
+#import "Sprite.h"
+#import "ButtonSprite.h"
+#import "VideoSprite.h"
 #import "TreasureHuntRenderer.h"
 
 #import <AVFoundation/AVFoundation.h>
@@ -433,28 +437,9 @@ static bool checkProgramLinkStatus(GLuint shader_program) {
   GLuint _cube_color_buffer;
   GLuint _cube_found_color_buffer;
     
+    VideoSprite_obj *sprite;
+    Sprite *sprites[2];
     
-    GLfloat _video_plane_vertices[NUM_VIDEO_PLANE_VERTICES];
-    GLfloat _video_plane_position[3];
-    GLfloat _video_plane_colors[NUM_VIDEO_PLANE_COLORS];
-    
-    GLuint _video_plane_texture;
-    GLuint _video_plane_program;
-    GLint _video_plane_vertex_attrib;
-    GLint _video_plane_position_uniform;
-    GLint _video_plane_texture_uniform;
-    GLint _video_plane_mvp_matrix;
-    GLuint _video_plane_vertex_buffer;
-    GLint _video_plane_color_attrib;
-    GLuint _video_plane_color_buffer;
-    GLuint _video_plane_found_color_buffer;
-    
-    CMTimeValue lastTime;
-    long lastPixelAddress;
-    
-    AVPlayer *player;
-    AVPlayerItem *playerItem;
-    AVPlayerItemVideoOutput *playerOutput;
     
 
   // GL variables for the grid.
@@ -544,73 +529,14 @@ static bool checkProgramLinkStatus(GLuint shader_program) {
   glBindBuffer(GL_ARRAY_BUFFER, _cube_found_color_buffer);
   glBufferData(GL_ARRAY_BUFFER, sizeof(_cube_found_colors), _cube_found_colors, GL_STATIC_DRAW);
     
-    
-    /////// Create the program object for the video plane.
-    
-    _video_plane_program = glCreateProgram();
-    NSAssert(_video_plane_program != 0, @"Failed to create program");
-    glAttachShader(_video_plane_program, video_plane_vertex_shader);
-    glAttachShader(_video_plane_program, video_plane_fragment_shader);
-    
-    // Link the shader program.
-    glLinkProgram(_video_plane_program);
-    NSAssert(checkProgramLinkStatus(_video_plane_program), @"Failed to link _video_plane_program");
-    
-    // Get the location of our attributes so we can bind data to them later.
-    _video_plane_vertex_attrib = glGetAttribLocation(_video_plane_program, "aVertex");
-    NSAssert(_video_plane_vertex_attrib != -1, @"glGetAttribLocation failed for aVertex");
-//    _video_plane_color_attrib = glGetAttribLocation(_video_plane_program, "aColor");
-//    NSAssert(_video_plane_color_attrib != -1, @"glGetAttribLocation failed for aColor");
-    
-    // After linking, fetch references to the uniforms in our shader.
-    _video_plane_mvp_matrix = glGetUniformLocation(_video_plane_program, "uMVP");
-    _video_plane_position_uniform = glGetUniformLocation(_video_plane_program, "uPosition");
-    _video_plane_texture_uniform = glGetUniformLocation(_video_plane_program, "uTexture");
-    NSAssert(_video_plane_mvp_matrix != -1 && _video_plane_position_uniform != -1 && _video_plane_texture_uniform != -1,
-             @"Error fetching uniform values for shader.");
-    // Initialize the vertex data for the video plane mesh.
-    for (int i = 0; i < NUM_VIDEO_PLANE_VERTICES; ++i) {
-        _video_plane_vertices[i] = (GLfloat)(kVideoPlaneVertices[i] * kCubeSize);
-    }
-    glGenBuffers(1, &_video_plane_vertex_buffer);
-    NSAssert(_video_plane_vertex_buffer != 0, @"glGenBuffers failed for vertex buffer");
-    glBindBuffer(GL_ARRAY_BUFFER, _video_plane_vertex_buffer);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(_video_plane_vertices), _video_plane_vertices, GL_STATIC_DRAW);
-    
-    // Initialize the color data for the video plane mesh.
-    for (int i = 0; i < NUM_VIDEO_PLANE_COLORS; ++i) {
-        _video_plane_colors[i] = (GLfloat)(kVideoPlaneColors[i] * kCubeSize);
-    }
-    glGenBuffers(1, &_video_plane_color_buffer);
-    NSAssert(_video_plane_color_buffer != 0, @"glGenBuffers failed for color buffer");
-    glBindBuffer(GL_ARRAY_BUFFER, _video_plane_color_buffer);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(_video_plane_colors), _video_plane_colors, GL_STATIC_DRAW);
-    
-    // Initialize texture for video plane
-    glGenTextures(1, &_video_plane_texture);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, _video_plane_texture);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    sprite = new VideoSprite_obj;
+    sprite->__construct();
+//    sprites[0] = [[VideoSprite alloc] init];
+    sprites[1] = [[ButtonSprite alloc] init];
     
     _cube_position[0] = 0;
     _cube_position[1] = 0;
     _cube_position[2] = -3.0f;
-    
-    _video_plane_position[0] = 0;
-    _video_plane_position[1] = -0.5f;
-    _video_plane_position[2] = -2.0f;
-    
-    NSURL *videoURL = [NSURL URLWithString:@"http://clips.vorwaerts-gmbh.de/big_buck_bunny.mp4"];
-    NSDictionary* settings = @{ (id)kCVPixelBufferPixelFormatTypeKey : @(kCVPixelFormatType_32BGRA) };
-    playerOutput = [[AVPlayerItemVideoOutput alloc] initWithPixelBufferAttributes:settings];
-    AVURLAsset *asset = [AVURLAsset URLAssetWithURL:videoURL options:nil];
-    playerItem = [AVPlayerItem playerItemWithAsset:asset];
-    [playerItem addOutput:playerOutput];
-    player = [AVPlayer playerWithPlayerItem:playerItem];
-    [player play];
     
 
   /////// Create the program object for the grid.
@@ -694,29 +620,10 @@ static bool checkProgramLinkStatus(GLuint shader_program) {
   glEnable(GL_DEPTH_TEST);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   glEnable(GL_SCISSOR_TEST);
-    
-    CMTime currentTime = [playerItem currentTime];
-    
-    NSLog(@"Current Time: %f", currentTime.value / currentTime.timescale);
-    if(lastTime != currentTime.value) {
-        NSLog(@"Update %lld", lastTime);
-        lastTime = currentTime.value;
-        // draw the view to the buffer
-        CVPixelBufferRef buffer = [playerOutput copyPixelBufferForItemTime:currentTime itemTimeForDisplay:nil];
-        
-        CVPixelBufferLockBaseAddress(buffer, kCVPixelBufferLock_ReadOnly);
-        long address = (long) CVPixelBufferGetBaseAddress(buffer);
-        if(lastPixelAddress != address) {
-            NSLog(@"Real Update");
-            lastPixelAddress = address;
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, _video_plane_texture);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, CVPixelBufferGetBytesPerRow(buffer)/4, CVPixelBufferGetHeight(buffer), 0, GL_RGBA, GL_UNSIGNED_BYTE, CVPixelBufferGetBaseAddress(buffer));
-        }
-        
-    } else {
-        NSLog(@"Skipped");
-    }
+ 
+    sprite->prerender();
+//    [sprites[0] prerender];
+    [sprites[1] prerender];
 }
 
 - (void)cardboardView:(GVRCardboardView *)cardboardView
@@ -769,29 +676,9 @@ static bool checkProgramLinkStatus(GLuint shader_program) {
   glDisableVertexAttribArray(_cube_vertex_attrib);
   glDisableVertexAttribArray(_cube_color_attrib);
     
-    // Select our shader.
-    glUseProgram(_video_plane_program);
-    
-    // Set the uniform values that will be used by our shader.
-    glUniform3fv(_video_plane_position_uniform, 1, _video_plane_position);
-    glUniform1i(_video_plane_texture_uniform, 0); // our texture slot
-    
-    // Set the uniform matrix values that will be used by our shader.
-    glUniformMatrix4fv(_video_plane_mvp_matrix, 1, false, model_view_matrix);
-    
-    // Set the cube colors.
-//    glBindBuffer(GL_ARRAY_BUFFER, _cube_color_buffer);
-//    glVertexAttribPointer(_video_plane_color_attrib, 4, GL_FLOAT, GL_FALSE, sizeof(float) * 4, 0);
-//    glEnableVertexAttribArray(_video_plane_color_attrib);
-    
-    // Draw our polygons.
-    glBindBuffer(GL_ARRAY_BUFFER, _video_plane_vertex_buffer);
-    glVertexAttribPointer(_video_plane_vertex_attrib, 3, GL_FLOAT, GL_FALSE,
-                          sizeof(float) * 3, 0);
-    glEnableVertexAttribArray(_video_plane_vertex_attrib);
-    glDrawArrays(GL_TRIANGLES, 0, NUM_VIDEO_PLANE_VERTICES / 3);
-    glDisableVertexAttribArray(_video_plane_vertex_attrib);
-//    glDisableVertexAttribArray(_video_plane_color_attrib);
+    sprite->render(model_view_matrix);
+//    [sprites[0] render:model_view_matrix];
+    [sprites[1] render:model_view_matrix];
     
 
   // Select our shader.
