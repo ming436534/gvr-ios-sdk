@@ -83,7 +83,7 @@ static const char* kVideoPlaneFragmentShaderString =
     "uniform sampler2D uTexture;\n"
     "\n"
     "void main() {\n"
-    "    gl_FragColor = texture2D(uTexture, vTexCoord);\n"
+    "    gl_FragColor = texture2D(uTexture, vTexCoord).bgra;\n"
     "}\n";
 
 // Fragment shader for the floorplan grid.
@@ -449,6 +449,9 @@ static bool checkProgramLinkStatus(GLuint shader_program) {
     GLuint _video_plane_color_buffer;
     GLuint _video_plane_found_color_buffer;
     
+    CMTimeValue lastTime;
+    long lastPixelAddress;
+    
     AVPlayer *player;
     AVPlayerItem *playerItem;
     AVPlayerItemVideoOutput *playerOutput;
@@ -691,6 +694,29 @@ static bool checkProgramLinkStatus(GLuint shader_program) {
   glEnable(GL_DEPTH_TEST);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   glEnable(GL_SCISSOR_TEST);
+    
+    CMTime currentTime = [playerItem currentTime];
+    
+    NSLog(@"Current Time: %f", currentTime.value / currentTime.timescale);
+    if(lastTime != currentTime.value) {
+        NSLog(@"Update %lld", lastTime);
+        lastTime = currentTime.value;
+        // draw the view to the buffer
+        CVPixelBufferRef buffer = [playerOutput copyPixelBufferForItemTime:currentTime itemTimeForDisplay:nil];
+        
+        CVPixelBufferLockBaseAddress(buffer, kCVPixelBufferLock_ReadOnly);
+        long address = (long) CVPixelBufferGetBaseAddress(buffer);
+        if(lastPixelAddress != address) {
+            NSLog(@"Real Update");
+            lastPixelAddress = address;
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, _video_plane_texture);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, CVPixelBufferGetBytesPerRow(buffer)/4, CVPixelBufferGetHeight(buffer), 0, GL_RGBA, GL_UNSIGNED_BYTE, CVPixelBufferGetBaseAddress(buffer));
+        }
+        
+    } else {
+        NSLog(@"Skipped");
+    }
 }
 
 - (void)cardboardView:(GVRCardboardView *)cardboardView
@@ -745,35 +771,6 @@ static bool checkProgramLinkStatus(GLuint shader_program) {
     
     // Select our shader.
     glUseProgram(_video_plane_program);
-    
-    int width = 400;
-    int height = 300;
-    GLubyte *pixelBuffer = (GLubyte *)malloc(4 * width * height);
-    for(int i = 0; i < 4 * width * height; i++) {
-        pixelBuffer[i] = 0xff;
-    }
-    
-    // create a suitable CoreGraphics context
-    CGColorSpaceRef colourSpace = CGColorSpaceCreateDeviceRGB();
-    CGContextRef context = CGBitmapContextCreate(pixelBuffer, width, height, 8, 4 * width, colourSpace, kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big);
-    CGColorSpaceRelease(colourSpace);
-    
-    // draw the view to the buffer
-    CVPixelBufferRef buffer = [playerOutput copyPixelBufferForItemTime:[playerItem currentTime] itemTimeForDisplay:nil];
-    
-    CVPixelBufferLockBaseAddress(buffer, kCVPixelBufferLock_ReadOnly);
-    NSLog(@"%d", (int) CVPixelBufferGetBaseAddress(buffer));
-    
-    // upload to OpenGL
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, _video_plane_texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, CVPixelBufferGetBytesPerRow(buffer)/4, CVPixelBufferGetHeight(buffer), 0, GL_RGBA, GL_UNSIGNED_BYTE, CVPixelBufferGetBaseAddress(buffer));
-//    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixelBuffer);
-    
-    // clean up
-    CGContextRelease(context);
-    free(pixelBuffer);
-    
     
     // Set the uniform values that will be used by our shader.
     glUniform3fv(_video_plane_position_uniform, 1, _video_plane_position);
