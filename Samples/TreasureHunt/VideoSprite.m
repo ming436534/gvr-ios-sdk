@@ -137,6 +137,7 @@ static const float kTexCoords[NUM_VERTICES] = {
     AVPlayer *player;
     AVPlayerItem *playerItem;
     AVPlayerItemVideoOutput *playerOutput;
+    
 
 }
 

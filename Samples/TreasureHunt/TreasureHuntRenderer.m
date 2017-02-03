@@ -534,8 +534,7 @@ static bool checkProgramLinkStatus(GLuint shader_program) {
     
     sprites[1].width = 10;
     sprites[1].height = 10;
-    sprites[1].x = 5;
-    sprites[1].y = -5;
+    sprites[0].z = -9.9f;
     
     _cube_position[0] = 0;
     _cube_position[1] = 0;
@@ -617,6 +616,14 @@ static bool checkProgramLinkStatus(GLuint shader_program) {
   GLKVector3 source_cube_position =
       GLKVector3Make(_cube_position[0], _cube_position[1], _cube_position[2]);
   _is_cube_focused = [self isLookingAtObject:&head_rotation sourcePosition:&source_cube_position];
+    
+    GLKVector3 button_position = GLKVector3Make(sprites[1].transformation.m30, sprites[1].transformation.m31, sprites[1].transformation.m32);
+    NSLog(@"%@", NSStringFromGLKVector3(button_position));
+    if([self isLookingAtObject:&head_rotation sourcePosition:&button_position]) {
+        sprites[1].alpha = 1;
+    } else {
+        sprites[1].alpha = 0.5;
+    }
 
   // Clear GL viewport.
   glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
@@ -721,7 +728,11 @@ static bool checkProgramLinkStatus(GLuint shader_program) {
     case kGVRUserEventTrigger:
       NSLog(@"User performed trigger action");
           
-          sprites[0].transformation = GLKMatrix4Translate(GLKMatrix4Invert([_headTransform headPoseInStartSpace], nil), 0, 0, -10);
+//          if([self isLookingAtObject:<#(const GLKQuaternion *)#> sourcePosition:<#(GLKVector3 *)#>])
+          GLKMatrix4 inverted = GLKMatrix4Invert([_headTransform headPoseInStartSpace], nil);
+          sprites[0].transformation = GLKMatrix4Translate(inverted, 0, 0, -10);
+          sprites[1].transformation = GLKMatrix4Translate(inverted, 1.0f, 0, -9.9f);
+          
       // Check whether the object is found.
       if (_is_cube_focused) {
          _success_source_id = [_gvr_audio_engine createStereoSound:kSuccessSoundFile];

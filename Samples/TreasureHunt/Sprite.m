@@ -153,6 +153,16 @@ static const float kVertices[NUM_VERTICES] = {
     }
 }
 
+- (float) alpha {
+    return _alpha;
+}
+
+- (void) setAlpha:(float) v {
+    if(_alpha != v) {
+        _alpha = v;
+    }
+}
+
 - (void) updateVertices {
     NSLog(@"updateVVVV, %f, %f", _width, _height);
     for(int i = 0; i < NUM_VERTICES; i += 3) {

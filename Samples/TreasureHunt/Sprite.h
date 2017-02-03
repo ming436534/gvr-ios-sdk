@@ -26,6 +26,7 @@
     float _rotationZ;
     float _width;
     float _height;
+    float _alpha;
     
     GLfloat _vertices[NUM_VERTICES];
     GLKMatrix4 _transformation;
@@ -43,6 +44,7 @@
 @property float rotationZ;
 @property float width;
 @property float height;
+@property float alpha;
 @property GLKMatrix4 transformation;
 
 @end

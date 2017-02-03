@@ -76,6 +76,7 @@ static const char *kVertexShaderString =
     "\n"
     "uniform mat4 uMVP; \n"
     "uniform mat4 uPosition; \n"
+    "uniform float uAlpha; \n"
     "attribute vec3 aVertex; \n"
     "attribute vec4 aColor; \n"
     "varying vec3 vGrid;  \n"
@@ -83,7 +84,7 @@ static const char *kVertexShaderString =
     "//varying vec2 vTexCoord;  \n"
     "void main(void) { \n"
     "  //vTexCoord = vec2(aVertex.x - 0.5, aVertex.y * -1.0 - 0.5); \n"
-    "  vColor = aColor; \n"
+    "  vColor = vec4(aColor.rgb, aColor.a * uAlpha); \n"
     "  vec4 pos = uPosition * vec4(aVertex, 1.0); \n"
     "  gl_Position = uMVP * pos; \n"
     "    \n"
@@ -120,8 +121,8 @@ static const float kColors[NUM_COLORS] = {
     0.0f, 0.5273f, 0.2656f, 1.0f,
     0.0f, 0.5273f, 0.2656f, 1.0f,
     0.0f, 0.5273f, 0.2656f, 1.0f,
-    1.0f, 0.5273f, 0.2656f, 1.0f,
-    1.0f, 0.5273f, 0.2656f, 1.0f,
+    0.0f, 0.5273f, 0.2656f, 1.0f,
+    0.0f, 0.5273f, 0.2656f, 1.0f,
 };
 
 @implementation ButtonSprite {
@@ -135,6 +136,7 @@ static const float kColors[NUM_COLORS] = {
     GLint vertex_attrib;
     GLint color_attrib;
     GLint position_uniform;
+    GLint alpha_uniform;
     GLint texture_uniform;
     GLint mvp_matrix;
     GLuint vertex_buffer;
@@ -147,7 +149,6 @@ static const float kColors[NUM_COLORS] = {
     AVPlayerItem *playerItem;
     AVPlayerItemVideoOutput *playerOutput;
 }
-
 
 - (instancetype) init {
     if(self = [super init]) {
@@ -175,6 +176,7 @@ static const float kColors[NUM_COLORS] = {
         // After linking, fetch references to the uniforms in our shader.
         mvp_matrix = glGetUniformLocation(program, "uMVP");
         position_uniform = glGetUniformLocation(program, "uPosition");
+        alpha_uniform = glGetUniformLocation(program, "uAlpha");
 //        texture_uniform = glGetUniformLocation(program, "uTexture");
         NSAssert(mvp_matrix != -1 && position_uniform != -1 /*&& texture_uniform != -1*/,
                  @"Error fetching uniform values for shader.");
@@ -214,6 +216,7 @@ static const float kColors[NUM_COLORS] = {
     // Set the uniform values that will be used by our shader.
 //    glUniform3fv(position_uniform, 1, position);
     glUniform1i(texture_uniform, 0); // our texture slot
+    glUniform1f(alpha_uniform, _alpha);
     
     // Set the uniform matrix values that will be used by our shader.
     glUniformMatrix4fv(position_uniform, 1, false, _transformation.m);
