@@ -436,7 +436,7 @@ static bool checkProgramLinkStatus(GLuint shader_program) {
   GLuint _cube_color_buffer;
   GLuint _cube_found_color_buffer;
     
-    Sprite *sprites[2];
+    Sprite *sprites[3];
     GVRHeadTransform *_headTransform;
     
 
@@ -529,12 +529,17 @@ static bool checkProgramLinkStatus(GLuint shader_program) {
     
     sprites[0] = [[VideoSprite alloc] init];
     sprites[1] = [[ButtonSprite alloc] init];
+    sprites[2] = [[ButtonSprite alloc] init];
     
     sprites[0].z = -10;
     
     sprites[1].width = 10;
     sprites[1].height = 10;
-    sprites[0].z = -9.9f;
+    sprites[1].z = -9.9f;
+    
+    sprites[2].width = 10;
+    sprites[2].height = 20;
+    sprites[2].z = -9.9f;
     
     _cube_position[0] = 0;
     _cube_position[1] = 0;
@@ -618,6 +623,7 @@ static bool checkProgramLinkStatus(GLuint shader_program) {
   _is_cube_focused = [self isLookingAtObject:&head_rotation sourcePosition:&source_cube_position];
     
     GLKVector3 button_position = GLKVector3Make(sprites[1].transformation.m30, sprites[1].transformation.m31, sprites[1].transformation.m32);
+    GLKVector3 button_position2 = GLKVector3Make(sprites[2].transformation.m30, sprites[2].transformation.m31, sprites[2].transformation.m32);
     NSLog(@"%@", NSStringFromGLKVector3(button_position));
     if([self isLookingAtObject:&head_rotation sourcePosition:&button_position]) {
         sprites[1].alpha = 1;
@@ -635,6 +641,7 @@ static bool checkProgramLinkStatus(GLuint shader_program) {
     
     [sprites[0] prerender:headTransform];
     [sprites[1] prerender:headTransform];
+    [sprites[2] prerender:headTransform];
 }
 
 - (void)cardboardView:(GVRCardboardView *)cardboardView
@@ -690,6 +697,7 @@ static bool checkProgramLinkStatus(GLuint shader_program) {
     
     [sprites[0] render:model_view_matrix];
     [sprites[1] render:model_view_matrix];
+    [sprites[2] render:model_view_matrix];
     
 
   // Select our shader.
@@ -732,6 +740,7 @@ static bool checkProgramLinkStatus(GLuint shader_program) {
           GLKMatrix4 inverted = GLKMatrix4Invert([_headTransform headPoseInStartSpace], nil);
           sprites[0].transformation = GLKMatrix4Translate(inverted, 0, 0, -10);
           sprites[1].transformation = GLKMatrix4Translate(inverted, 1.0f, 0, -9.9f);
+          sprites[2].transformation = GLKMatrix4Translate(inverted, 1.0f, 1.0f, -9.9f);
           
       // Check whether the object is found.
       if (_is_cube_focused) {
